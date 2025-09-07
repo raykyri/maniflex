@@ -44,6 +44,16 @@ body {
                 background-color: var(--gray);
             }
 
+            svg.links {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 1;
+            }
+
             div.memo {
                 background-color: var(--background);
                 position: absolute;
@@ -51,6 +61,7 @@ body {
                 min-height: 80px;
                 border: 1px solid var(--foreground);
                 user-select: none;
+                z-index: 2;
 
                 &.active {
                     user-select: auto;
@@ -81,12 +92,28 @@ body {
                     border-bottom: 1px solid var(--foreground);
                 }
 
+                div.link {
+                    position: absolute;
+                    top: 0px;
+                    right: 0px;
+                    color: var(--foreground);
+                    font-size: 10px;
+                    font-weight: normal;
+                    text-align: center;
+                    line-height: 15px;
+                    width: 16px;
+                    height: 16px;
+                    border-bottom: 1px solid var(--foreground);
+                    border-left: 1px solid var(--foreground);
+                    cursor: crosshair;
+                }
+
                 div.drag {
                     cursor: grab;
                     position: absolute;
                     top: 0px;
-                    right: 0px;
-                    width: 100%;
+                    right: 16px;
+                    width: calc(100% - 32px);
                     height: 16px;
                     border-bottom: 1px solid var(--foreground);
                 }

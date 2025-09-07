@@ -5,6 +5,7 @@ import "../sass/index.scss";
 
 let theme = "light";
 let activeMemo;
+let linkingState = null;
 
 let main, canvas, board, selection;
 let currentMouse, currentSize;
@@ -24,6 +25,202 @@ function onMouseDown(e) {
     }
   }
 };
+
+/*
+  Link Functions and Handlers
+*/
+
+function handleLinkStart(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const memo = e.target.parentNode;
+  const memoId = memo.dataset.id;
+  const links = getLocalStorageItem("manifest_links") || {};
+
+  const existingLinks = Object.values(links).filter(link => link.from === memoId);
+  if (existingLinks.length > 0) {
+    if (confirm("Remove existing link from this memo?")) {
+      existingLinks.forEach(link => {
+        delete links[link.id];
+      });
+      setLocalStorageItem("manifest_links", links);
+      renderLinks();
+    }
+    return;
+  }
+
+  if (e.which === 1 || e.touches) {
+    linkingState = {
+      from: memoId,
+      startX: e.clientX,
+      startY: e.clientY
+    };
+
+    document.body.style.cursor = "crosshair";
+
+    document.addEventListener("mousemove", handleLinkMove);
+    document.addEventListener("touchmove", handleLinkMove);
+    document.addEventListener("mouseup", handleLinkEnd);
+    document.addEventListener("touchend", handleLinkEnd);
+
+    renderTempLink(e.clientX, e.clientY);
+  }
+}
+
+function handleLinkMove(e) {
+  if (!linkingState) return;
+
+  const x = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+  const y = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+
+  renderTempLink(x, y);
+}
+
+function handleLinkEnd(e) {
+  if (!linkingState) return;
+
+  const x = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+  const y = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+
+  const targetElement = document.elementFromPoint(x, y);
+  const targetMemo = targetElement ? targetElement.closest(".memo") : null;
+
+  if (targetMemo && targetMemo.dataset.id !== linkingState.from) {
+    const linkId = generateUUID();
+    const links = getLocalStorageItem("manifest_links") || {};
+    links[linkId] = {
+      id: linkId,
+      from: linkingState.from,
+      to: targetMemo.dataset.id
+    };
+    setLocalStorageItem("manifest_links", links);
+  }
+
+  linkingState = null;
+  document.body.style.cursor = null;
+
+  document.removeEventListener("mousemove", handleLinkMove);
+  document.removeEventListener("touchmove", handleLinkMove);
+  document.removeEventListener("mouseup", handleLinkEnd);
+  document.removeEventListener("touchend", handleLinkEnd);
+
+  renderLinks();
+}
+
+function renderTempLink(endX, endY) {
+  if (!linkingState) return;
+
+  const fromMemo = document.querySelector(`[data-id="${linkingState.from}"]`);
+  if (!fromMemo) return;
+
+  const fromRect = fromMemo.getBoundingClientRect();
+  const boardRect = board.getBoundingClientRect();
+
+  const startX = fromRect.right - boardRect.left - 1;
+  const startY = fromRect.top - boardRect.top + 1;
+  const tempEndX = endX - boardRect.left;
+  const tempEndY = endY - boardRect.top;
+
+  let linksSvg = board.querySelector("svg.links");
+  if (!linksSvg) {
+    linksSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    linksSvg.classList.add("links");
+    board.appendChild(linksSvg);
+  }
+
+  linksSvg.innerHTML = "";
+
+  const existingLinks = getLocalStorageItem("manifest_links") || {};
+  Object.values(existingLinks).forEach(link => {
+    const fromMemo = document.querySelector(`[data-id="${link.from}"]`);
+    const toMemo = document.querySelector(`[data-id="${link.to}"]`);
+
+    if (fromMemo && toMemo) {
+      const fromRect = fromMemo.getBoundingClientRect();
+      const toRect = toMemo.getBoundingClientRect();
+
+      const x1 = fromRect.right - boardRect.left - 1;
+      const y1 = fromRect.top - boardRect.top + 1;
+      const x2 = toRect.left - boardRect.left + 1;
+      const y2 = toRect.top - boardRect.top + 1;
+
+      createLinkElement(linksSvg, x1, y1, x2, y2);
+    }
+  });
+
+  const tempLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  tempLine.setAttribute("x1", startX);
+  tempLine.setAttribute("y1", startY);
+  tempLine.setAttribute("x2", tempEndX);
+  tempLine.setAttribute("y2", tempEndY);
+  tempLine.setAttribute("stroke", theme === "light" ? "black" : "white");
+  tempLine.setAttribute("stroke-width", "2");
+  tempLine.setAttribute("stroke-dasharray", "5,5");
+  linksSvg.appendChild(tempLine);
+}
+
+function renderLinks() {
+  let linksSvg = board.querySelector("svg.links");
+  if (!linksSvg) {
+    linksSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    linksSvg.classList.add("links");
+    board.appendChild(linksSvg);
+  }
+
+  linksSvg.innerHTML = "";
+
+  const links = getLocalStorageItem("manifest_links") || {};
+  const boardRect = board.getBoundingClientRect();
+
+  Object.values(links).forEach(link => {
+    const fromMemo = document.querySelector(`[data-id="${link.from}"]`);
+    const toMemo = document.querySelector(`[data-id="${link.to}"]`);
+
+    if (fromMemo && toMemo) {
+      const fromRect = fromMemo.getBoundingClientRect();
+      const toRect = toMemo.getBoundingClientRect();
+
+      const x1 = fromRect.right - boardRect.left - 1;
+      const y1 = fromRect.top - boardRect.top + 1;
+      const x2 = toRect.left - boardRect.left + 1;
+      const y2 = toRect.top - boardRect.top + 1;
+
+      createLinkElement(linksSvg, x1, y1, x2, y2);
+    }
+  });
+}
+
+function createLinkElement(svg, x1, y1, x2, y2) {
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  line.setAttribute("x1", x1);
+  line.setAttribute("y1", y1);
+  line.setAttribute("x2", x2);
+  line.setAttribute("y2", y2);
+  line.setAttribute("stroke", theme === "light" ? "black" : "white");
+  line.setAttribute("stroke-width", "2");
+  line.setAttribute("marker-end", "url(#arrowhead)");
+  svg.appendChild(line);
+
+  if (!svg.querySelector("defs")) {
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+    marker.setAttribute("id", "arrowhead");
+    marker.setAttribute("markerWidth", "7");
+    marker.setAttribute("markerHeight", "5");
+    marker.setAttribute("refX", "6");
+    marker.setAttribute("refY", "2.3");
+    marker.setAttribute("orient", "auto");
+
+    const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    polygon.setAttribute("points", "0 0, 6.7 2.3, 0 4.7");
+    polygon.setAttribute("fill", theme === "light" ? "black" : "white");
+
+    marker.appendChild(polygon);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+  }
+}
 
 /*
   Memo Functions and Handlers
@@ -76,6 +273,13 @@ function createMemo(id, text, position, size) {
   close.addEventListener("touchend", handleMemoClose);
   memo.appendChild(close);
 
+  const link = document.createElement("div");
+  link.classList.add("link");
+  link.innerHTML = "⧉";
+  link.addEventListener("mousedown", handleLinkStart);
+  link.addEventListener("touchstart", handleLinkStart);
+  memo.appendChild(link);
+
   const resize = document.createElement("div");
   resize.classList.add("resize");
   resize.addEventListener("mousedown", onMouseDown);
@@ -126,6 +330,7 @@ function handleMemoDragMove(e) {
     activeMemo.style.left = `${activeMemo.offsetLeft - (currentMouse.x - x)}px`;
 
     currentMouse = { x, y };
+    renderLinks();
   }
 };
 
@@ -176,6 +381,8 @@ function handleMemoDragEnd(e) {
   document.removeEventListener("mouseup", handleMemoDragEnd);
   document.removeEventListener("touchcancel", handleMemoDragEnd);
   document.removeEventListener("touchend", handleMemoDragEnd);
+
+  renderLinks();
 };
 
 function handleMemoClose(e) {
@@ -185,7 +392,17 @@ function handleMemoClose(e) {
     delete memos[id];
     setLocalStorageItem("manifest_memos", memos);
 
+    const links = getLocalStorageItem("manifest_links") || {};
+    const updatedLinks = {};
+    Object.values(links).forEach(link => {
+      if (link.from !== id && link.to !== id) {
+        updatedLinks[link.id] = link;
+      }
+    });
+    setLocalStorageItem("manifest_links", updatedLinks);
+
     board.removeChild(e.target.parentNode);
+    renderLinks();
   }
 };
 
@@ -235,6 +452,7 @@ function handleMemoResizeMove(e) {
 
     activeMemo.style.width = `${width}px`;
     activeMemo.style.height = `${height}px`;
+    renderLinks();
   }
 };
 
@@ -292,6 +510,8 @@ function handleMemoResizeEnd(e) {
   document.removeEventListener("mouseup", handleMemoResizeEnd, { passive: false, useCapture: false });
   document.removeEventListener("touchcancel", handleMemoResizeEnd, { passive: false, useCapture: false });
   document.removeEventListener("touchend", handleMemoResizeEnd, { passive: false, useCapture: false });
+
+  renderLinks();
 };
 
 /*
@@ -410,6 +630,7 @@ function toggleTheme() {
 
   // Redraw the canvas
   onResize();
+  renderLinks();
 }
 
 function handleTheme() {
@@ -475,6 +696,10 @@ function onResize() {
 
   currentMouse = null;
   currentSize = null;
+
+  if (typeof renderLinks === 'function') {
+    renderLinks();
+  }
 };
 
 function onLoad() {
@@ -516,6 +741,7 @@ function onLoad() {
   }
 
   onResize();
+  renderLinks();
 };
 
 window.addEventListener("resize", onResize);
