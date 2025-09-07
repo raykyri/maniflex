@@ -62,6 +62,12 @@ body {
                 border: 1px solid var(--foreground);
                 user-select: none;
                 z-index: 2;
+                opacity: 0.95;
+
+                &.link-hover {
+                    opacity: 0.7;
+                    background-color: var(--gray);
+                }
 
                 &.active {
                     user-select: auto;
@@ -90,6 +96,22 @@ body {
                     width: 16px;
                     height: 16px;
                     border-bottom: 1px solid var(--foreground);
+                }
+
+                div.link-remove {
+                    position: absolute;
+                    top: 0px;
+                    right: 16px;
+                    color: var(--foreground);
+                    font-size: 10px;
+                    font-weight: normal;
+                    text-align: center;
+                    line-height: 15px;
+                    width: 16px;
+                    height: 16px;
+                    border-bottom: 1px solid var(--foreground);
+                    border-left: 1px solid var(--foreground);
+                    cursor: pointer;
                 }
 
                 div.link {

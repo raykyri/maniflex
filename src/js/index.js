@@ -36,19 +36,6 @@ function handleLinkStart(e) {
 
   const memo = e.target.parentNode;
   const memoId = memo.dataset.id;
-  const links = getLocalStorageItem("manifest_links") || {};
-
-  const existingLinks = Object.values(links).filter(link => link.from === memoId);
-  if (existingLinks.length > 0) {
-    if (confirm("Remove existing link from this memo?")) {
-      existingLinks.forEach(link => {
-        delete links[link.id];
-      });
-      setLocalStorageItem("manifest_links", links);
-      renderLinks();
-    }
-    return;
-  }
 
   if (e.which === 1 || e.touches) {
     linkingState = {
@@ -74,6 +61,20 @@ function handleLinkMove(e) {
   const x = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
   const y = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
 
+  // Clear previous hover state
+  const previousHovered = document.querySelector(".memo.link-hover");
+  if (previousHovered) {
+    previousHovered.classList.remove("link-hover");
+  }
+
+  // Check if hovering over a memo
+  const targetElement = document.elementFromPoint(x, y);
+  const targetMemo = targetElement ? targetElement.closest(".memo") : null;
+  
+  if (targetMemo && targetMemo.dataset.id !== linkingState.from) {
+    targetMemo.classList.add("link-hover");
+  }
+
   renderTempLink(x, y);
 }
 
@@ -95,6 +96,12 @@ function handleLinkEnd(e) {
       to: targetMemo.dataset.id
     };
     setLocalStorageItem("manifest_links", links);
+  }
+
+  // Clear any remaining hover state
+  const hoveredMemo = document.querySelector(".memo.link-hover");
+  if (hoveredMemo) {
+    hoveredMemo.classList.remove("link-hover");
   }
 
   linkingState = null;
@@ -206,19 +213,43 @@ function createLinkElement(svg, x1, y1, x2, y2) {
     const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
     const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
     marker.setAttribute("id", "arrowhead");
-    marker.setAttribute("markerWidth", "7");
-    marker.setAttribute("markerHeight", "5");
-    marker.setAttribute("refX", "6");
-    marker.setAttribute("refY", "2.3");
+    marker.setAttribute("markerWidth", "4");
+    marker.setAttribute("markerHeight", "4");
+    marker.setAttribute("refX", "2");
+    marker.setAttribute("refY", "2");
     marker.setAttribute("orient", "auto");
 
-    const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-    polygon.setAttribute("points", "0 0, 6.7 2.3, 0 4.7");
-    polygon.setAttribute("fill", theme === "light" ? "black" : "white");
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", "2");
+    circle.setAttribute("cy", "2");
+    circle.setAttribute("r", "1.5");
+    circle.setAttribute("fill", "none");
+    circle.setAttribute("stroke", theme === "light" ? "black" : "white");
+    circle.setAttribute("stroke-width", "1");
 
-    marker.appendChild(polygon);
+    marker.appendChild(circle);
     defs.appendChild(marker);
     svg.appendChild(defs);
+  }
+}
+
+function handleLinkRemove(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const memo = e.target.parentNode;
+  const memoId = memo.dataset.id;
+  const links = getLocalStorageItem("manifest_links") || {};
+
+  const existingLinks = Object.values(links).filter(link => link.from === memoId);
+  if (existingLinks.length > 0) {
+    if (confirm("Remove existing link from this memo?")) {
+      existingLinks.forEach(link => {
+        delete links[link.id];
+      });
+      setLocalStorageItem("manifest_links", links);
+      renderLinks();
+    }
   }
 }
 
@@ -272,6 +303,13 @@ function createMemo(id, text, position, size) {
   close.addEventListener("mouseup", handleMemoClose);
   close.addEventListener("touchend", handleMemoClose);
   memo.appendChild(close);
+
+  const linkRemove = document.createElement("div");
+  linkRemove.classList.add("link-remove");
+  linkRemove.innerHTML = "−";
+  linkRemove.addEventListener("mouseup", handleLinkRemove);
+  linkRemove.addEventListener("touchend", handleLinkRemove);
+  memo.appendChild(linkRemove);
 
   const link = document.createElement("div");
   link.classList.add("link");
@@ -697,7 +735,7 @@ function onResize() {
   currentMouse = null;
   currentSize = null;
 
-  if (typeof renderLinks === 'function') {
+  if (typeof renderLinks === "function") {
     renderLinks();
   }
 };
