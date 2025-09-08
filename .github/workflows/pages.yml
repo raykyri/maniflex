@@ -23,7 +23,7 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Install dependencies
-        run: npm install
+        run: yarn
       - name: Prebuild
         run: npm run prebuild
       - name: Build with Parcel
