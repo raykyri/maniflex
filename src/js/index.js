@@ -70,7 +70,7 @@ function handleLinkMove(e) {
   // Check if hovering over a memo
   const targetElement = document.elementFromPoint(x, y);
   const targetMemo = targetElement ? targetElement.closest(".memo") : null;
-  
+
   if (targetMemo && targetMemo.dataset.id !== linkingState.from) {
     targetMemo.classList.add("link-hover");
   }
